@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import axios from "axios"
 import weatherService from './services/weather'
 import countriesService from "./services/countries"
 import Display from './components/Display'
@@ -53,8 +52,7 @@ function App() {
   
 
   const handleChange = (event) => {
-    console.log(event.target.value)
-    const query = event.target.value
+    const query = event.target.value.toLowerCase().trim()
     const filtered = countriesList.filter(country => {
       const name = country.name.common.toLowerCase()
       return name.includes(query)

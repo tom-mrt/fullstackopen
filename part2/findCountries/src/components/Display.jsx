@@ -1,21 +1,22 @@
 const ShowDetail = ({ country, selectedCountry,weatherData }) => {
 
-    const langs = Object.values(country.languages)
+    const langs = Object.values(country.languages ?? {})
     if (selectedCountry === country.name.common) {
+      const capital = Array.isArray(country.capital) ? country.capital.join(",") : country.capital
       return (
         <div>
           <h1>{country.name.common}</h1>
-          Capital {country.capital}<br/>
+          Capital {capital}<br/>
           Area {country.area}
           <h2>Languages</h2>
           <ul>
             {langs.map(lang => {
             return (
-              <li>{lang}</li>
+              <li key={lang}>{lang}</li>
             )
           })}
           </ul>
-          <img src={country.flags.png}/>
+          <img src={country.flags.png} alt={`${country.name.common} flag`}/>
 
           <h2>Weather in {country.capital}</h2>
           <p>Temperature {weatherData?.temp} Celsius</p>
