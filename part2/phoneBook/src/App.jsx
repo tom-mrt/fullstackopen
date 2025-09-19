@@ -32,8 +32,6 @@ const App = () => {
       if (ok) {
         const changedPerson = {name: newName, number: String(newNumber)}
         const targetId = persons.find(person => person.name === newName).id
-        console.log(targetId)
-        console.log(newName)
         personService
           .update(changedPerson, targetId)
           .then(data => {
@@ -70,6 +68,13 @@ const App = () => {
         setNewName("")
         setNewNumber("")
       })
+      .catch(error => {
+        console.log(error.response.data.error)
+        setErrorMessage(`${error.response.data.error}`)
+        setTimeout(() => {
+          setErrorMessage(null)
+        }, 5000)
+      })
   }
 
   const handleName = (event) => {
@@ -90,7 +95,7 @@ const App = () => {
     const ok = window.confirm(`Deleted ${deletedPerson.name}?`)
     if (ok) {
       personService
-      .deletePerson(id)
+        .deletePerson(id)
     setPersons(persons.filter(person => person.id !== id))
     return
     }
