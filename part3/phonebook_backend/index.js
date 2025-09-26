@@ -94,6 +94,10 @@ app.get("/info", (request, response) => {
     })
 })
 
+const unknownEndpoint = (request, response) => {
+    response.status(404).send({ error: "unknown endpoint" })
+}
+
 const errorHanlder = (error, request, response, next) => {
     console.error(error.message)
     if (error.name === "CastError") {
@@ -105,6 +109,7 @@ const errorHanlder = (error, request, response, next) => {
     next(error)
 }
 
+app.use(unknownEndpoint)
 app.use(errorHanlder)
 
 const PORT = process.env.PORT
