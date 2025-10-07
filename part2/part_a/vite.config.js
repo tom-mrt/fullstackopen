@@ -11,5 +11,10 @@ export default defineConfig({
         chageOrigin: true,
       }
     }
+  },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: './testSetup.js',
   }
 })

@@ -1,8 +1,5 @@
-const jwt = require('jsonwebtoken');
-
 const blogsRouter = require("express").Router()
 const Blog = require("../models/blog")
-const User = require('../models/user');
 const { userExtractor } = require('../utils/middleware');
 
 
@@ -37,7 +34,8 @@ blogsRouter.post('/', userExtractor, async (request, response) => {
   user.blogs = user.blogs.concat(savedBlog._id)
   await user.save()
 
-  response.status(201).json(savedBlog)
+  const populated = await savedBlog.populate("user")
+  response.status(201).json(populated)
 
 })
 
@@ -51,28 +49,38 @@ blogsRouter.delete("/:id", userExtractor, async (request, response) => {
 
   const blog = await Blog.findById(targetId)
 
-  if (blog.user.toString() === user._id.toString()){
-    await Blog.findByIdAndDelete(targetId)
-    response.status(204).end()
-  } else {
-    return response.status(401).json({ error: "無効なユーザーです"})
+  if (!blog) {
+    return response.status(204).end()
   }
+
+  if (blog.user.toString() !== user._id.toString()){
+    return response.status(403).json({ error: "user not authorized" })
+  } 
+
+  user.blogs = user.blogs.filter(b => b.id.toString() !== blog.id.toString())
+
+  await blog.deleteOne()
+  response.status(204).end()
 
 })
 
 blogsRouter.put("/:id", async (request, response) => {
+  const { title, author, url, likes } = request.body
+  
   const targetId = request.params.id
-  const newLikes = request.body.likes
-  console.log(newLikes)
 
   const targetBlog = await Blog.findById(targetId)
   if (!targetBlog) {
     return response.status(404).end()
   }
 
-  targetBlog.likes = newLikes
+  targetBlog.title = title
+  targetBlog.author = author
+  targetBlog.url = url
+  targetBlog.likes = likes
   
   const updatedBlog = await targetBlog.save()
+  await updatedBlog.populate("user")
   response.status(200).json(updatedBlog)
 
 })
