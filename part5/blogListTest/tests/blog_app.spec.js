@@ -18,7 +18,7 @@ describe("Blog app", () => {
       }
     })
 
-    await page.goto("http://localhost:5173")
+    await page.goto("/")
   })
 
   test("Login form is shown", async ({ page }) => {
