@@ -1,25 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import Blog from './components/Blog'
+import { BrowserRouter as Router, Routes, Route, Link, useParams, useMatch
+} from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Navbar, Nav } from 'react-bootstrap';
+import BlogList from './components/Blog'
+import BlogDetail from './components/BlogDetail';
+import Notification from './components/Notification';
 import blogService from './services/blogs'
 import loginService from './services/login'
-import Notification from './components/Notificatioin'
-import BlogForm from './components/BlogForm'
-import Togglable from './components/Togglable'
+import usersService from './services/users';
+import LoginForm from './components/LoginForm';
 
 const App = () => {
-  const [blogs, setBlogs] = useState([])
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  // const [blogs, setBlogs] = useState([])
   const [user, setUser] = useState(null)
-  const [notification, setNotification] = useState('')
-  const [errorFlag, setErrorFlag] = useState(false)
-
-
-  useEffect(() => {
-    blogService.getAll().then(blogs =>
-      setBlogs( blogs.sort((a, b) => b.likes - a.likes) )
-    )
-  }, [])
+  const createBlogRef = useRef()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     const loggedUsesrJSON = window.localStorage.getItem('loggedUser')
@@ -30,26 +26,63 @@ const App = () => {
     }
   }, [])
 
-  const handleLogin = async (event) => {
-    event.preventDefault()
+  const newBlogMutation = useMutation({
+    mutationFn: blogService.create,
+    onSuccess: (newBlog) => {
+      const blogs = queryClient.getQueryData(["blogs"])
+      queryClient.setQueryData(["blogs"], blogs.concat(newBlog))
+    }
+  })
 
-    try {
+  const updateMutation = useMutation({
+    mutationFn: (updated) => blogService.update(updated.id, updated),
+    onSuccess: (updatedBlog) => {
+      const blogs = queryClient.getQueryData(["blogs"])
+      queryClient.setQueryData(["blogs"], blogs.map(b => b.id === updatedBlog.id ? updatedBlog : b))
+    }
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: blogService.remove,
+    onSuccess: (_, id) => {
+      const blogs = queryClient.getQueryData(["blogs"]) 
+      queryClient.setQueryData(["blogs"], blogs.filter(b => b.id !== id))
+    }
+  })
+
+  const commentMutation = useMutation({
+    mutationFn: (args) => blogService.postComment(args.id, args.postedComment),
+    onSuccess: (blogWithComment) => {
+      const blogs = queryClient.getQueryData(["blogs"])
+      queryClient.setQueryData(["blogs"], blogs.map(b => b.id === blogWithComment.id ? blogWithComment : b))
+    }
+  })
+
+  const usersResult = useQuery({
+    queryKey: ["users"],
+    queryFn: usersService.getAll,
+    select: (data) => [...data].sort((a, b) => b.blogs.length - a.blogs.length)
+  })
+
+  const blogsResult = useQuery({
+    queryKey: ["blogs"],
+    queryFn: blogService.getAll,
+    // selectは購読者側のビューで、キャッシュ本体はそのまま
+    select: (data) => [...data].sort((a, b) => b.likes - a.likes),
+  })
+
+  if (usersResult.isLoading || blogsResult.isLoading) {
+    return <div>loading data...</div>
+  }
+
+  const users = usersResult.data ?? []
+  const blogs = blogsResult.data ?? []
+  
+  const handleLogin = async (username, password) => {
       const user = await loginService.login({ username, password })
       window.localStorage.setItem('loggedUser', JSON.stringify(user))
       blogService.setToken(user.token)
       setUser(user)
-      setUsername('')
-      setPassword('')
-    } catch (e) {
-      console.error('Async error:', e)
-      setErrorFlag(true)
-      setNotification('wrong username or password')
-      setTimeout(() => {
-        setNotification('')
-        setErrorFlag(false)
-      }, 5000)
-
-    }
   }
 
   const handleLogout = () => {
@@ -61,17 +94,7 @@ const App = () => {
   const handleCreate = async (newBlog) => {
     try {
       createBlogRef.current.toggleVisibility()
-      const createdBlog = await blogService.create(newBlog)
-      const newBlogs = blogs.concat(createdBlog)
-      console.log(createdBlog)
-
-      setBlogs(newBlogs)
-      setNotification(`a new blog ${createdBlog.title} by ${createdBlog.author} added`)
-      setTimeout(() => {
-        setNotification('')
-      }, 5000)
-
-
+      newBlogMutation.mutate(newBlog)
     } catch (error) {
       console.error('Async error:', error)
     }
@@ -80,93 +103,123 @@ const App = () => {
 
   const handleLike = async (blog) => {
     const updated = { ...blog, likes: blog.likes + 1 }
-    const saved = await blogService.update(blog.id, updated)
-    setBlogs(blogs.map(b => (b.id === blog.id ? saved : b)).sort((a, b) => b.likes - a.likes))
+    updateMutation.mutate(updated)
   }
 
   const handleRemove = async (blog) => {
     const ok = window.confirm(`Remove blog ${blog.title} by ${blog.author}`)
     if (!ok) return
 
-    await blogService.remove(blog.id)
-    setBlogs(blogs.filter(b => b.id !== blog.id))
+    removeMutation.mutate(blog.id)
   }
 
-  const loginForm = () => {
+  const handleComment = async (id, postedComment) => {
+    console.log(postedComment);
+    
+    commentMutation.mutate({ id, postedComment })
+  };
+
+  const padding = {
+    padding: 5
+  }
+
+  const UsersList = () => {
     return (
       <div>
+        <h2>Users</h2>
 
-        <h2>log in to application</h2>
-        <Notification errorFlag={errorFlag} message={notification}/>
-
-        <form onSubmit={handleLogin}>
-          <div>
-            <label>
-            username
-              <input
-                type="text"
-                value={username}
-                onChange={({ target }) => setUsername(target.value)}
-              />
-            </label>
-          </div>
-          <div>
-            <label>
-            password
-              <input
-                type="password"
-                value={password}
-                onChange={({ target }) => setPassword(target.value)}
-              />
-            </label>
-          </div>
-          <button type="submit">login</button>
-        </form>
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Blogs created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.id}>
+                <td><Link to={`/users/${u.id}`}>{u.username}</Link></td>
+                <td>{u.blogs?.length ?? 0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     )
   }
 
-  const blogList = (username) => {
+  const UserView = () => {
+    const id = useParams().id
+    const selectedUser = users.filter(u => u.id === id)[0]
+    const addedBlogs = selectedUser.blogs ?? []
+    
     return (
       <div>
-        <h2>blogs</h2>
-        <Notification errorFlag={errorFlag} message={notification}/>
-        <p>{username} logged in<button onClick={handleLogout}>logout</button></p>
-        {createBlog()}
-
-        {
-          blogs.map(blog =>
-            <Blog key={blog.id} blog={blog} currentUser={username} onLike={handleLike} onRemove={handleRemove}/>
-          )
-        }
+        <h2>{selectedUser.username}</h2>
+        <h3>added blogs</h3>
+        <ul>
+          {addedBlogs.map(b => {
+            return (
+              <li key={b.id}>
+                {b.title}
+              </li>
+            )
+          })}
+        </ul>
       </div>
     )
-  }
+  };
 
-  const createBlogRef = useRef()
-
-  const createBlog = () => {
+  const Home = () => {
     return (
       <div>
-        <Togglable buttonLabel="create new blog" hideLabel="cancel" ref={createBlogRef}>
-          <BlogForm
-            createBlog={handleCreate}
-          />
-        </Togglable>
+        <h2>blog app</h2>
       </div>
     )
-  }
+  };
 
   return (
-    <div>
-      {!user && loginForm()}
-      {user && (
+    <Router>
+      <div className='container'>
         <div>
-          {blogList(user.name)}
+          <Navbar collapseOnSelect expand="lg" bg="dark" variant="dark">
+          <Navbar.Toggle aria-controls="responsive-navbar-nav" />
+          <Navbar.Collapse id="responsive-navbar-nav">
+            <Nav className='me-auto'>
+              <Nav.Link href="#" as="span">
+                <Link style={padding} to="/users">users</Link>
+              </Nav.Link>
+              <Nav.Link href="#" as="span">
+                <Link style={padding} to="/blogs">blogs</Link>
+              </Nav.Link>
+              <Nav.Link href="#" as="span">
+                {user
+                  ? <em>{user.username} logged in <button onClick={handleLogout}>logout</button></em>
+                  : <Link style={padding} to="/login">login</Link>
+                }
+              </Nav.Link>
+            </Nav>
+          </Navbar.Collapse>
+          </Navbar>
+          
         </div>
-      )}
 
-    </div>
+        <Home />
+        <Notification />
+        <Routes>
+          <Route path="/login" element={<LoginForm handleLogin={handleLogin} />}/>
+          <Route path="/users/:id" element={<UserView />}/>
+          <Route path="/users" element={<UsersList />}/>
+          <Route path="/blogs" element={user && <BlogList blogs={blogs} username={user.name} handleLike={handleLike} handleRemove={handleRemove} handleCreate={handleCreate} createBlogRef={createBlogRef}/>}/>
+          <Route path="/blogs/:id" element={user && <BlogDetail blogs={blogs} handleComment={handleComment} onLike={handleLike} onRemove={handleRemove} />} />
+        </Routes>
+        {user && (
+          <div>
+            
+          </div>
+        )}
+      </div>
+    </Router>
   )
 }
 

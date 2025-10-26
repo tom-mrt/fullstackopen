@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import Table from "react-bootstrap/Table"
+import { Link } from 'react-router-dom';
+import Togglable from './Togglable';
+import BlogForm from './BlogForm';
 
-const Blog = ({ blog, currentUser, onLike, onRemove }) => {
-  const [visible, setVisible] = useState(false)
-  const isOriginal = currentUser === blog.user.username
+const Blog = ({ blog }) => {
+  // const [visible, setVisible] = useState(false)
+  // const blogUsername = blog?.user?.username ?? ''
   const blogStyle = {
     paddingTop: 10,
     paddingLeft: 2,
@@ -11,30 +14,50 @@ const Blog = ({ blog, currentUser, onLike, onRemove }) => {
     marginBottom: 5
   }
 
-  const removeButtonStyle = {
-    backgroundColor: 'blue',
-    color: 'white',
-    display: isOriginal ? "" : "none"
-  }
-
-  const hideWhenVisible = { display: visible ? 'none' : '' }
-  const showWhenVisible = { display: visible ? '' : 'none' }
+  // const hideWhenVisible = { display: visible ? 'none' : '' }
+  // const showWhenVisible = { display: visible ? '' : 'none' }
 
   return (
-    <div style={blogStyle}>
-      <div style={hideWhenVisible}>
-        {blog.title} {blog.user.username}<button onClick={() => setVisible(true)}>view</button>
-      </div>
-      <div style={showWhenVisible}>
-        {blog.title} {blog.user.username}<button onClick={() => setVisible(false)}>hide</button><br/>
-        {blog.url}<br />
-      likes {blog.likes} <button onClick={() => onLike(blog)}>like</button><br />
-        {blog.author} <br />
-        <button onClick={() => onRemove(blog)} style={removeButtonStyle}>remove</button>
-      </div>
-
-    </div>
+      <td>
+        <Link to={`/blogs/${blog.id}`}>{blog.title} {blog.author}</Link>
+      </td>
   )
 }
 
-export default Blog
+
+const BlogList = ({ blogs, username, handleLike, handleRemove, handleCreate, createBlogRef }) => {
+  const createBlog = () => {
+    return (
+      <div>
+        <Togglable buttonLabel="create new blog" hideLabel="cancel" ref={createBlogRef}>
+          <BlogForm
+            createBlog={handleCreate}
+          />
+        </Togglable>
+      </div>
+    )
+  }
+
+  return (
+      <div className='container'>
+        {createBlog()}
+        <Table striped>
+          <tbody>
+            {
+              blogs.map(blog =>
+                <tr key={blog.id}>
+                  <Blog key={blog.id} blog={blog} currentUser={username} onLike={handleLike} onRemove={handleRemove}/>
+                </tr>
+              )
+            }
+          </tbody>
+
+        </Table>
+
+
+        {/* <BlogView blog={blogs[0]}/> */}
+      </div>
+    )
+};
+
+export default BlogList;

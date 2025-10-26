@@ -1,9 +1,14 @@
-const Notification = ({ message, errorFlag }) => {
-  if (message === '') {
+import { useContext } from 'react';
+import NotifyContext from '../NotifyContext';
+
+const Notification = () => {
+  const { notification } = useContext(NotifyContext)
+
+  if (notification.message === '') {
     return null
   }
 
-  const notificationStyle = errorFlag
+  const notificationStyle = notification.isError
     ? {
       color: 'red',
       background: 'lightgrey',
@@ -24,7 +29,7 @@ const Notification = ({ message, errorFlag }) => {
     }
 
   return (
-    <p style={notificationStyle}>{message}</p>
+    <p style={notificationStyle}>{notification.message}</p>
   )
 }
 

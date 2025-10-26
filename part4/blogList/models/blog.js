@@ -2,6 +2,11 @@ const mongoose = require("mongoose")
 
 mongoose.set("strictQuery", false)
 
+const commentSchema = new mongoose.Schema({
+  content: { type: String, required: true, trim: true },
+  createdAt: { type: Date, default: Date.now },
+}, { _id: true})
+
 const blogSchema = mongoose.Schema({
   title: String,
   author: String,
@@ -13,6 +18,18 @@ const blogSchema = mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User"
+  },
+  comments: {
+    type: [commentSchema],
+    default: []
+  }
+})
+
+commentSchema.set("toJSON", {
+  transform: (_, ret) => {
+    ret.id = ret._id.toString();
+    delete ret._id;
+    delete ret.__v
   }
 })
 

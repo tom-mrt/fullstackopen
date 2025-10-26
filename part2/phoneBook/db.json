@@ -19,6 +19,37 @@
       "name": "Mary Poppendieck",
       "number": "39-23-6423122",
       "id": "4"
+    },
+    {
+      "id": "e6be",
+      "name": "Tom Morita",
+      "number": "xxx-gugugu"
+    }
+  ],
+  "notes": [
+    {
+      "id": "1",
+      "content": "HTML is easy",
+      "important": true
+    },
+    {
+      "id": "2",
+      "content": "Browser can execute only JavaScript",
+      "important": true
+    },
+    {
+      "id": "3",
+      "content": "GET and POST are the most important methods of HTTP protocol",
+      "important": false
+    },
+    {
+      "id": "40d6",
+      "content": "hello javascript",
+      "important": false
+    },
+    {
+      "id": "2243",
+      "content": "hello rust"
     }
   ]
 }
