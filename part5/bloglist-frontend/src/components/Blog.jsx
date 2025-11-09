@@ -4,8 +4,6 @@ import Togglable from './Togglable';
 import BlogForm from './BlogForm';
 
 const Blog = ({ blog }) => {
-  // const [visible, setVisible] = useState(false)
-  // const blogUsername = blog?.user?.username ?? ''
   const blogStyle = {
     paddingTop: 10,
     paddingLeft: 2,
@@ -14,8 +12,6 @@ const Blog = ({ blog }) => {
     marginBottom: 5
   }
 
-  // const hideWhenVisible = { display: visible ? 'none' : '' }
-  // const showWhenVisible = { display: visible ? '' : 'none' }
 
   return (
       <td>
@@ -25,7 +21,7 @@ const Blog = ({ blog }) => {
 }
 
 
-const BlogList = ({ blogs, username, handleLike, handleRemove, handleCreate, createBlogRef }) => {
+const BlogList = ({ blogs, handleLike, handleRemove, handleCreate, createBlogRef }) => {
   const createBlog = () => {
     return (
       <div>
@@ -46,7 +42,7 @@ const BlogList = ({ blogs, username, handleLike, handleRemove, handleCreate, cre
             {
               blogs.map(blog =>
                 <tr key={blog.id}>
-                  <Blog key={blog.id} blog={blog} currentUser={username} onLike={handleLike} onRemove={handleRemove}/>
+                  <Blog blog={blog} />
                 </tr>
               )
             }

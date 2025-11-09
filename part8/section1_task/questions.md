@@ -1,0 +1,51 @@
+- mongooseのfindOneAndUpdateの各引数の仕様を解説して。
+  - 署名: `Model.findOneAndUpdate(filter, update, options?)`
+  - 第1引数 `filter`:
+    - 更新対象を検索する条件オブジェクト。例: `{ _id, name, status: 'active' }`
+  - 第2引数 `update`:
+    - 反映内容。更新演算子（`$set`, `$unset`, `$inc`, `$push`, `$addToSet`, `$setOnInsert` など）または直値のパッチ。
+    - 例: `{ $set: { name: 'New' } }`, `{$setOnInsert: { createdAt: new Date() }}`
+  - 第3引数 `options`（主なもの）:
+    - `new: boolean` デフォルトは `false`。`true` で「更新後のドキュメント」を返す。`false` だと「更新前」。
+    - `upsert: boolean` 一致が無ければ挿入（insert）を行う。
+    - `runValidators: boolean` 更新時にもスキーマバリデーションを実行（`true` 推奨）。
+    - `context: 'query' | 'update'` バリデータ内 `this` の振る舞い制御。`runValidators:true` と併用時に `'query'` を指定することが多い。
+    - `setDefaultsOnInsert: boolean` upsert 時にデフォルト値を適用。
+    - `session` トランザクション用セッション。
+    - `projection` 返却フィールド制御。`select` と同等の役割。
+  - 戻り値: Query オブジェクト（thenable）。`await ... .exec()` で実行すると安全。
+  - パターン例（存在しなければ作成）:
+    - `await Model.findOneAndUpdate({ name }, { $setOnInsert: { name } }, { upsert: true, new: true }).exec()`
+- mongooseのlean()の仕様を解説して。
+  - 効果: Mongoose ドキュメントではなく「プレーンなJSオブジェクト」で返すモード。高速・軽量。
+  - 使い方: `await Model.find(filter).lean()` や `await Model.findById(id).lean()`
+  - 特性:
+    - getter/setter・仮想プロパティ・メソッド・`save()` などのドキュメント機能は無効。
+    - 返却はイミュータブルではないが、Mongoose の変更追跡は働かない。
+    - メモリ消費とシリアライズが有利。API レスポンス用途で有効。
+  - populate との併用: `await Model.find().lean().populate('ref')` でも可。取得後配列なら `Model.populate(rows, { path: 'ref' })`。
+  - 注意: ドキュメントの機能（例: `doc.populate()` や `doc.save()`）が必要な処理では使わない。
+- mongooseのisValidObjectIdの仕様を解説して。
+  - 署名: `isValidObjectId(value): boolean`
+  - 役割: 値が「MongoDB の ObjectId として妥当か」を判定。文字列・Buffer・ObjectId を受け付ける。
+  - 使い所: リクエスト引数の事前バリデーション、存在しない形式を早期に弾く用途。
+  - 例: `if (!isValidObjectId(authorId)) throw new Error('INVALID_ID')`
+  - 注意: 妥当＝実在ではない。形式チェックのみ。
+- apollo/clientライブラリにおけるuseMutationの仕様を解説して。
+  - 署名: `const [mutate, result] = useMutation(DOCUMENT, options?)`
+  - 戻り値:
+    - `mutate(variablesOrOptions?)` ミューテーションを実行する関数。`mutate({ variables, optimisticResponse, refetchQueries, update, context })` などを指定可能。
+    - `result` 実行状態オブジェクト。`{ data, loading, error, called, reset }`
+  - 主な `options`:
+    - `variables` 既定変数の指定。
+    - `refetchQueries` 成功後に再取得するクエリ群。例: `[{ query: ALL_BOOKS }]`
+    - `update(cache, mutationResult)` キャッシュ手動更新。`cache.writeQuery`, `cache.evict` などが使える。
+    - `optimisticResponse` 楽観的更新。
+    - `onCompleted(data)` / `onError(error)` コールバック。
+    - `context` リクエスト単位のヘッダ等を付与。
+  - 呼び出し例:
+    - `const [createBook, res] = useMutation(CREATE_BOOK, { refetchQueries: [{ query: ALL_BOOKS }] })`
+    - `await createBook({ variables: { title, author, published, genres } })`
+  - 注意:
+    - 変数型は GraphQL スキーマに一致させる（例: `Int!` には `Number`）。
+    - 複数回 then されると困るケースは少ないが、サーバ側は純粋な Promise を返す実装が安全。

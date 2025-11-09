@@ -87,8 +87,8 @@ const App = () => {
 
   const handleLogout = () => {
     window.localStorage.removeItem('loggedUser')
-
     setUser(null)
+    blogService.setToken(null)
   }
 
   const handleCreate = async (newBlog) => {

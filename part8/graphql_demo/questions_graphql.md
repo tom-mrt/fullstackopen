@@ -1,0 +1,17 @@
+- startStandalneServerのcontext引数の役割を解説して。
+  - 回答: `context` は「各リクエストごとに一回だけ実行され、全リゾルバの第3引数に渡される共有オブジェクト」を作るためのフックです。ここで認証ヘッダ（例: Authorization）を読み、トークン検証して `currentUser` を取得したり、`DataLoader`・ロガー・外部APIクライアント・DB接続などを用意してリゾルバに手渡します。`context` は非同期関数にでき、`startStandaloneServer(server, { context: async ({ req }) => ({ currentUser, loaders }) })` のように使います。これにより「リゾルバから認証情報や共通ユーティリティへ安全にアクセスする」ことができます。
+- index.js内で、currentUser変数を定義する段階でpopulateをしているのはなぜだと思う？
+  - 回答: `currentUser` を使う場面（例: `me` クエリや「ユーザーの friends を返す」など）で、参照（ObjectId）のままだと毎回追加のクエリが必要になります。`populate` を最初に行い、`friends` のような参照フィールドを「実体（Person ドキュメント）」に展開しておけば、リゾルバは `currentUser.friends` をそのまま返せます。これは SQL で言う JOIN に近く、N+1 問題の軽減やリゾルバ実装の単純化に役立ちます（必要なパスだけを `populate('friends')` のように限定するのが実運用では望ましい）。
+- populateメソッドの役割を素人にもわかるように、比喩を交えながら解説して。
+  - 回答: 住所録（User）の「友だち」欄に“名刺のIDだけ”が並んでいる状態を想像してください。`populate` は、その ID を手掛かりに名刺箱（Person コレクション）から本物の名刺を取り出し、「友だち」欄に名刺そのものを差し替えてくれる操作です。結果として、ID の羅列（`[ObjectId, ...]`）が、名前・電話・住所などを持つ“完全な友だち情報”の配列になります。要するに MongoDB/Mongoose における「参照の解決」で、RDB の JOIN 的なことをやってくれます（ただし毎回大量に `populate` すると重くなるため、必要なときに必要なフィールドだけに限定するのがコツです）。
+- expressライブラリのapp.useメソッドの仕様、引数を解説して。
+  - 回答: `app.use([path], ...middleware)` で、指定パス（省略時は`/`=全パスのプレフィックス）にミドルウェア関数やサブアプリ/ルーターを“順番どおり”にマウントします。`path` は文字列・配列・正規表現が使え、複数のミドルウェアをカンマ区切りで並べられます。各ミドルウェアは `function (req, res, next)` 形で、必要なら `next()` を呼んで後続へ渡します。戻り値は `app`（チェーン可能）。本プロジェクトでは `app.use('/', cors(), express.json(), expressMiddleware(server, { context }))` とし、CORS→JSONパース→GraphQL処理の順に適用しています。
+- express.json()メソッドの仕様を解説して。
+  - 回答: `express.json([options])` は「リクエストボディが JSON のときに `req.body` へパースして格納する」組み込みミドルウェアを返します。既定では `Content-Type: application/json` を対象にし、（body-parser 由来で）`limit`（受信サイズ上限。既定 100kb 付近）/`strict`（配列・オブジェクトのみ許可）/`type`（対象 Content-Type を変更）/`inflate`（圧縮の展開）/`reviver`（JSON.parse の reviver を委譲）/`verify`（生ボディ検証）などのオプションを受け取れます。GraphQL の POST 本文を処理するため、本プロジェクトでは `expressMiddleware` の前に必ず置いています。
+- expressMiddlewareオブジェクトの仕様を解説して。
+  - 回答: ここでの `expressMiddleware` は `@as-integrations/express5` が提供する「Apollo Server 4 を Express に橋渡しするミドルウェア生成関数」です。シグネチャは概ね `expressMiddleware(apolloServer, { context, ...options })` で、返り値は Express 互換のハンドラ（`(req,res,next)`）です。`server.start()` 後に `app.use(path, expressMiddleware(server, { context }))` のように使い、HTTP 上の GraphQL リクエスト（GET/POST）を処理します。`context` はリクエストごとに実行され、戻した値が各リゾルバの第3引数 `contextValue` として渡されます（本プロジェクトでは JWT から `currentUser` を注入）。
+- `npm install graphql-ws ws @graphql-tools/schema`にてインストールされる各ライブラリの役割を教えて。
+  - 回答:
+    - `graphql-ws`: GraphQL over WebSocket の公式プロトコル実装。`useServer` でサブスクリプション（`subscribe`）を WebSocket で処理します。
+    - `ws`: Node.js 向け軽量 WebSocket 実装。`graphql-ws` の下回り（サーバ/コネクション）として利用します。
+    - `@graphql-tools/schema`: `typeDefs` と `resolvers` から実行可能スキーマを作るユーティリティ。`makeExecutableSchema({ typeDefs, resolvers })` を提供し、HTTP/WS の両経路で同じスキーマを使える形にします。
